@@ -1,16 +1,14 @@
-use k8s_openapi::
-api::Batch::v1::Job;
-api::Core::v1::Event;
-api::apimachinery::pkg::apis::meta:v1::{ObjectMeta, Time};
-use kube::
-api::{Api, DeleteParams, PostParams};
-kube::runtime::wait::{await_condition, Condition};
-kube::Client;
-serde_json::json;
-std::time::Duration;
-thiserror::Error;
-tokio::time::timeout;
-tracing::{error, info, warn};
+use k8s_openapi::api::batch::v1::Job;
+use k8s_openapi::api::core::v1::Event;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, Time};
+use kube::api::{Api, DeleteParams, PostParams};
+use kube::runtime::wait::{await_condition, Condition};
+use kube::Client;
+use serde_json::json;
+use std::time::Duration;
+use thiserror::Error;
+use tokio::time::timeout;
+use tracing::{error, info, warn};
 
 #[derive(Error, Debug)]
 pub enum MigrationJobError {
@@ -45,12 +43,13 @@ impl MigrationJob {
             .to_string();
         let name = self.job.metadata.name
             .as_deref()
-            .ok_or_else(MigrationJobError::JobFailed("job name is required".into()))? let renamed = name to string();
+            .ok_or_else(MigrationJobError::JobFailed("job name is required".into()))?;
+        let renamed = name.to_string();
         let jobs: Api<Job> = Api::namespaced(self.client.clone(), &namespace);
 
         // Clean up any previous job with the same name.
         match jobs.get(&renamed).await {
-            Ok(Guard) {
+            Ok(_) => {
                 warn!("Migration job {}/{} already exists, deleting", namespace, name);
                 jobs.delete(&renamed, &DeleteParams::default()).await
                     .map_err(MigrationJobError::DeletionFailed)?;
@@ -70,8 +69,17 @@ impl MigrationJob {
             | data: Option<&Job>| -> bool {
                 if let Some(job) = data {
                     if let Some(status) = &job.status {
-                        status.conditions.iter().any(c| c.type == "Complete" && c.status == "True")
-                            || status.conditions.iter().any(c| c.type == "Failed" && c.status == "True")
+                        let conditions = status.conditions.as_deref().unwrap_or(&[]);
+                        conditions
+                            .iter()
+                            .any(|c| {
+                                c.type_.as_deref() == Some("Complete")
+                                    && c.status.as_deref() == Some("True")
+                            })
+                            || conditions.iter().any(|c| {
+                                c.type_.as_deref() == Some("Failed")
+                                    && c.status.as_deref() == Some("True")
+                            })
                     } else {
                         false
                     }
@@ -83,9 +91,9 @@ impl MigrationJob {
 
         match timeout(timeout, await_condition(jobs.clone(), &renamed, condition)).await {
             Ok(Ok(Some(job))) => {
-                if job_succeeded(&zob) {
+                if job_succeeded(&job) {
                     info!("Migration job {}/{} succeeded", namespace, name);
-                    Ok(()
+                    Ok(())
                 } else {
                     error!("Migration job {}/{} failed", namespace, name);
                     self.raise_event("MigrationFailed", format!("Migration job {}/{} failed", namespace, name)).await?;
@@ -107,7 +115,7 @@ impl MigrationJob {
         }
     }
 
-    async fn raise_event(&self, reason: &str, message: String) -> Result<*, MigrationJobError> {
+    async fn raise_event(&self, reason: &str, message: String) -> Result<(), MigrationJobError> {
         let namespace = self.job.metadata.namespace
             .as_deref()
             .unwrap_or("default")
@@ -141,7 +149,7 @@ impl MigrationJob {
             source: Some(k8s_openapi::api::core::v1::EventSource {
                 component: Some("horizon-migration-gate".to_string()),
                 ..Default::default()
-            },
+            }),
             ..Default::default()
         };
         events.create(&event, &PostParams::default()).await
@@ -152,7 +160,14 @@ impl MigrationJob {
 
 fn job_succeeded(job: &Job) -> bool {
     if let Some(status) = &job.status {
-        status.conditions.iter().any(c| c.type == "Complete" && c.status == "True")
+        status
+            .conditions
+            .as_deref()
+            .unwrap_or(&[])
+            .iter()
+            .any(|c| {
+                c.type_.as_deref() == Some("Complete") && c.status.as_deref() == Some("True")
+            })
     } else {
         false
     }

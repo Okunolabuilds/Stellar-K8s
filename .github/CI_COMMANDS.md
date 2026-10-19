@@ -97,7 +97,7 @@ body:
 
 | Target | Fix |
 |--------|-----|
-| `docker-multiarch` | Added recipe that dispatches the `multiarch-build.yml` workflow via `gh workflow run` |
+| `docker-multiarch` | Recipe builds a real multi-arch image locally via `docker buildx` (it previously dispatched a `multiarch-build.yml` workflow that no longer exists — see #935) |
 | `run` | Added recipe as a documented alias for `run-local` (matches README references) |
 | `update-doc-baseline` | New target to run `doc-check --update-baseline` |
 | `docs-check-strict` | New target that runs `doc-check status` without `--warn-only` (hard fail) |
@@ -227,6 +227,12 @@ the critical path by ~35–40% compared to the previous sequential layout.
 ## Release & Multi-Arch Workflows (#665)
 
 ### `multiarch-build.yml`
+> **Correction (issue #935):** this workflow no longer exists in
+> `.github/workflows/`. The multi-arch container image is published by the
+> `container` job in `release.yml` (QEMU + `docker buildx`). Local
+> multi-arch builds use `make docker-multiarch`, which runs `docker buildx
+> build --platform linux/amd64,linux/arm64`. The notes below are kept as the
+> original design intent.
 - Runs on **main pushes** (path-filtered) and `workflow_dispatch` — not on PRs.
 - Per-platform GHA cache scopes (`multiarch-amd64`, `multiarch-arm64`) prevent
   cross-arch cache pollution and improve cache hit rates.
@@ -343,8 +349,10 @@ cargo audit  # Uses .cargo/audit.toml config
   (`make test-db-migrations`). Uses isolated `stellar_migration_test` credentials only.
 
 ### Security scanning (Trivy / Checkov)
-- **Canonical workflow:** `.github/workflows/security-scan.yml` (push to `main`,
-  schedule, `workflow_dispatch`). Uses `.github/actions/security-scan` for image scans.
+- **Canonical workflows:** `.github/workflows/vulnerability-scan.yml` (Trivy filesystem +
+  IaC scans; push to `main`, schedule, `workflow_dispatch`) and
+  `.github/workflows/container-image-security.yml` (Trivy + Grype image scans).
+  Uses `.github/actions/security-scan` for image scans.
 - **CI image scan after publish:** `ci.yml` `security-scan` job (same composite action).
 
 ### Maintenance workflow

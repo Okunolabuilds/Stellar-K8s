@@ -63,6 +63,9 @@ async fn test_password_generation() {
 
     // Test password generation through the public interface
     // Note: generate_secure_password is private, so we test indirectly
+}
+
+#[tokio::test]
 async fn test_secret_rotation_config_round_trip_preserves_all_fields() {
     let config = secret_rotation_full();
     let deserialized: SecretRotationConfig =

@@ -17,6 +17,14 @@ CI runs the same targets from `.github/workflows/ci.yml` (`helm-lint`,
 `helm-upgrade-test`, `yaml-schema-validate`). Pin: Helm **3.14.0**,
 helm-unittest **v0.5.1**.
 
+`make helm-lint` runs `helm lint charts/stellar-operator --strict`: chart errors
+and lint warnings fail the check. It needs Helm but no Kubernetes cluster.
+The existing `helm-lint` CI job runs on pull requests and pushes to `main` when
+charts, CRDs, samples, examples, the Makefile, or the CI workflow change.
+For manual verification, run `make helm-lint` and expect an exit status of zero
+with no lint errors or warnings. See the
+[Helm lint reference](https://helm.sh/docs/helm/helm_lint/) for flag details.
+
 ## Edge cases (issue #1289)
 
 `charts/stellar-operator/tests/edge_cases_test.yaml` covers:

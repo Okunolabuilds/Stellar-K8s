@@ -1,9 +1,16 @@
 site_name: Stellar-K8s Documentation
 site_url: https://m1s0g1.github.io/Stellar-K8s/
 site_description: Comprehensive documentation for deploying and managing Stellar blockchain nodes on Kubernetes
+# Fail the build on any warning (missing nav targets, broken links, plugin
+# issues) so docs regressions are caught in CI (#1691).
+strict: true
 repo_url: https://github.com/OtowoOrg/Stellar-K8s
 repo_name: OtowoOrg/Stellar-K8s
 edit_uri: edit/main/docs/
+
+# Fail the build on broken links, unrecognized links, and nav warnings.
+# Local docs builds must also run with strict behavior (mkdocs build --strict).
+strict: true
 
 theme:
   name: material
@@ -46,7 +53,7 @@ theme:
 plugins:
   - search:
       lang: en
-      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+      separator: '[\\s\\-,:!=\\[\\]()"/]+|(?!\\b)(?=[A-Z][a-z])|\\.(?!\\d)|&[lg]t;'
   - minify:
       minify_html: true
       minify_js: true
@@ -102,19 +109,28 @@ nav:
     - multi-region-deployment-and-failover.md
   - Configuration:
     - configuration/index.md
+    - CRD Reference: api-reference.md
+    - Operators: operator-sdk-guide.md
+    - Storage: volume-snapshots.md
     - CRD Reference: configuration/crd-reference.md
     - Operators: configuration/operators.md
     - Storage: configuration/storage.md
+    - Validator Container Command: configuration/validator-command.md
     - Database Optimization: database/optimization-guide.md
   - Tutorials:
     - tutorials/index.md
     - Deploy Testnet Validator: tutorials/deploy-testnet-validator.md
+    - Configure HA Setup: deployment-patterns/validator-ha-topology.md
+    - Backup and Restore: backup-verification.md
     - Configure HA Setup: tutorials/configure-ha-setup.md
     - Backup and Restore: tutorials/backup-restore.md
   - Operations & Observability:
     - SCP Consensus Topology and Monitoring: scp-consensus-topology-and-monitoring.md
+    - Monitoring and Dashboards Setup Guide: MONITORING_SETUP_GUIDE.md
+    - Monitoring and Dashboards Operational Runbook: MONITORING_OPERATIONAL_RUNBOOK.md
     - Production Profiling Runbook: operations/profiling-runbook.md
     - Core Blue/Green Runbook: operations/core-blue-green-runbook.md
+    - Observability Overview: observability/index.md
     - OpenTelemetry Tracing: observability/tracing.md
     - Distributed Rate Limiting: distributed-rate-limiting.md
     - Feature Flag Rollouts: feature-flag-rollouts.md
@@ -137,17 +153,24 @@ nav:
       - Client Libraries: api/client-libraries.md
   - Security:
     - Security Compliance Guide: security/compliance-guide.md
+    - Security Review: security/security-review.md
     - Container Image Security: container-image-security.md
+    - Vulnerability Scanning: security/vulnerability-scan.md
     - Credentials & Secrets: security/credentials-and-secrets.md
     - Pod Security Standards: security/pss.md
     - Automated Dependency Updates: security/dependency-updates.md
+    - Dependency Audit: security/dependency-audit.md
   - Networking:
     - Comprehensive Network Guide: networking/index.md
   - Development:
     - Regeneration Guide: development/regeneration-guide.md
     - Repo Health Checklist: development/repo-health-checklist.md
+    - Scripts Reference: development/scripts-reference.md
     - Static Analysis Gates: development/static-analysis-gates.md
     - License Header Compliance: development/license-headers.md
+    - Documentation Build: development/docs-build.md
+    - Navigation Coverage: development/docs-nav-coverage.md
+    - Link Integrity: development/docs-link-integrity.md
     - Automated Load Testing: load-testing.md
     - YAML Schema Validation: yaml-schema-validation.md
     - Helm Chart Testing: helm-chart-testing.md
@@ -156,6 +179,9 @@ nav:
   - Contributing:
     - contributing/index.md
     - Development Setup: contributing/development-setup.md
+    - Report an Issue: issue-reporting.md
+    - Change Notes: change-notes.md
+  - Documentation Site: doc-site.md
 
 extra:
   social:

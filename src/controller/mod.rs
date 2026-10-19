@@ -3,16 +3,21 @@
 pub mod autoscaler;
 pub mod benchmark;
 pub mod blue_green;
+pub mod blue_green_core;
 
 pub mod canary;
+pub mod cache_aware_queue;
 pub mod cross_cloud_failover;
 pub mod event_taxonomy;
 pub mod feature_flags;
+#[cfg(feature = "metrics")]
+pub mod fee_market;
 pub mod gas_autoscaling;
 pub mod gitops_upgrade;
 pub mod horizon_cache;
 pub mod horizon_metrics_collector;
 pub mod horizon_scaler;
+pub mod job_orphan_reconciler;
 pub mod jurisdiction;
 pub mod label_propagation;
 pub mod leader;
@@ -27,12 +32,16 @@ pub mod pdb;
 pub mod pss;
 pub mod quota;
 pub mod registry_controller;
+pub mod registry_gate;
 pub mod resource_meta;
+pub mod resource_optimization;
 
 
 pub mod anomaly_detection;
 pub(crate) mod archive_health;
 pub mod archive_prune;
+#[cfg(feature = "metrics")]
+pub mod asset_monitor;
 pub mod audit;
 pub mod audit_log;
 pub mod audit_recorder;
@@ -44,22 +53,23 @@ pub mod captive_core;
 pub mod chaos_engineering;
 pub mod compliance_export;
 pub mod conditions;
+pub mod config_scope;
 pub mod cost;
 pub mod cross_cluster;
 pub mod cross_region_sync;
 pub mod cve;
 pub(crate) mod cve_reconciler;
 pub mod cve_scanner;
-[cfg(test)]
+#[cfg(test)]
 pub(crate) mod cve_test;
 pub mod db_pool;
 pub mod diff;
 pub mod disk_scaler;
-[cfg(test)]
+#[cfg(test)]
 mod disk_scaler_test;
 pub mod dr;
 pub mod dr_drill;
-[cfg(test)]
+#[cfg(test)]
 mod dr_test;
 pub(crate) mod finalizers;
 pub(crate) mod forensic_snapshot;
@@ -68,59 +78,88 @@ pub(crate) mod health;
 mod health_test;
 pub mod ingestion;
 pub mod kms_secret;
-[cfg(feature = "metrics")]
+pub mod ledger_migration;
+#[cfg(feature = "metrics")]
+pub mod lifecycle_hooks;
+#[cfg(feature = "metrics")]
 pub mod metrics;
 pub mod mtls;
 pub mod mtls_rotation;
 pub mod oci_snapshot;
 pub mod operator_config;
+pub mod ownership_registry;
+pub mod peer_connectivity;
 pub mod peer_discovery;
-[cfg(test)]
+#[cfg(test)]
 mod peer_discovery_test;
+pub mod performance;
+pub mod policy_bundle;
+pub mod preemptive_spot_migration;
 pub mod pruning_reconciler;
 pub mod pruning_worker;
 pub mod quorum;
 pub mod read_pool;
 pub(crate) mod reconciler;
-[cfg(test)]
+#[cfg(test)]
 mod reconciler_test;
 pub(crate) mod remediation;
-[cfg(test)]
+#[cfg(test)]
 mod remediation_test;
-pub mod resource_optimization;
 pub(crate) mod resources;
-[cfg(test)]
+#[cfg(test)]
 mod resources_test;
-pub mod rollout;
-pub mod secret_watcher;
+pub mod retry_policy_tuner;
+pub mod secret_policy_controller;
+pub(crate) mod secret_watcher;
 pub mod security;
+#[cfg(test)]
+mod seed_env_dedupe_test;
 pub mod service_mesh;
 mod csi_snapshot;
 pub mod snapshot;
+pub mod snapshot_integrity;
 pub mod snapshot_worker;
 pub mod spot_drain;
 pub mod storage_migration;
 pub(crate) mod sync_scale;
 pub(crate) mod sync_state_monitor;
+pub mod tenant_reconciler;
+pub mod testnet_compliance;
 
 pub mod topology;
 pub mod traffic;
-[cfg(test)]
+#[cfg(test)]
+pub mod traffic_shift;
+#[cfg(test)]
+mod traffic_shift_test;
+#[cfg(test)]
 mod traffic_test;
 pub mod vpa;
+pub mod volume_resizer;
 pub(crate) mod vsl;
 pub mod webhook_delivery;
 pub mod zk_archive_verifier;
 
+// Issue #1577 — Ledger-Close Webhook Dispatcher
+pub mod ledger_close_dispatcher;
+// Issue #1564 — Horizon Ingestion Failover for Validator Groups
+pub mod horizon_failover;
+pub mod soroban_cache;
+pub mod soroban_contracts;
+// Issue #1565 — Soroban RPC Caching and Pagination Limits
+pub mod soroban_rpc;
+
 pub use anomaly_detection::{run_anomaly_detection, AnomalyDetector, AnomalyEvent};
 pub use archive_health::{
-    calculate_backoff, check_archive_integrity, check_history_archive_health, ArchiveHealthResult,
-    ArchiveIntegrityResult, ARCHIVE_LAG_THRESHOLD,
+    calculate_backoff, check_archive_integrity, check_archives_version_compatibility,
+    check_history_archive_health, check_single_archive_version_compatibility,
+    supported_archive_versions, validate_archive_compatibility, ArchiveHealthResult,
+    ArchiveIntegrityResult, ArchiveVersionCompatibility, StellarHistoryJson, ARCHIVE_LAG_THRESHOLD,
 };
 pub use audit_log::{AdminAction, AuditEntry, AuditLog};
 pub use audit_recorder::AuditRecorder;
 pub use background_jobs::{JobKind, JobRecord, JobRegistry, JobState, MAX_JOBS};
-pub use captive::{CaptiveCoreProcess, CaptiveCoreSupervisor, SupervisorConfig, SupervisorState};
+pub use captive::{CaptiveCoreProcess, CaptiveCoreSupervisor, SupervisorConfig};
 pub use benchmark::run_benchmark_controller;
 pub use blue_green::{
     cleanup_blue_deployment, create_green_deployment, rollback_to_blue, run_smoke_tests,
@@ -160,6 +199,15 @@ pub use gitops_upgrade::{
     ProtocolUpgradeTimeline,
 };
 pub use health::{check_node_health, HealthCheckResult};
+pub use horizon_failover::{
+    HorizonHealthStatus, HorizonIngestionCoordinator, HorizonIngestionRole,
+    DEFAULT_INGESTION_LEASE_DURATION_SECS,
+};
+pub use job_orphan_reconciler::{
+    classify_job, classify_pod, plan_reclaim, reconcile_job_retention, ArtifactId, ArtifactKind,
+    Classification, ClusterView, JobObservation, JobPhase, OrphanClass, OwnerRefSnapshot,
+    PodObservation, PodPhase, ReclaimAction, ReclaimOutcome, ReclaimPlan, ReclaimTarget,
+};
 pub use jurisdiction::{
     build_jurisdiction_node_affinity, compliance_report, merge_jurisdiction_tolerations,
     ComplianceReportEntry,
@@ -177,12 +225,13 @@ pub use peer_discovery::{
     get_peers_from_config_map, trigger_peer_config_reload, PeerDiscoveryConfig,
     PeerDiscoveryManager, PeerInfo,
 };
+pub use policy_bundle::reconcile_policy_bundle;
 pub use pruning_reconciler::{reconcile_pruning, update_pruning_status};
 pub use pss::{
     ensure_namespace_pss_labels, restricted_container_security_context,
     restricted_pod_security_context, validate_pss_compliance, PssViolation,
 };
-[cfg(feature = "reconciler-fuzz")]
+#[cfg(feature = "reconciler-fuzz")]
 pub use reconciler::reconcile_for_fuzzz;
 pub use reconciler::{run_controller, BatchSummaryReport, ControllerState};
 
@@ -194,6 +243,11 @@ pub use snapshot::{
     verify_file as snapshot_verify_file, ReconcileOutcome, SnapshotReconcilerConfig, SnapshotRef,
 };
 pub use snapshot_worker::run_snapshot_worker;
+pub use soroban_rpc::{
+    EventCursor, EventFilter, GetEventsRequest, GetEventsResponse, GetLedgerEntriesRequest,
+    GetLedgerEntriesResponse, LedgerEntryLruCache, LedgerEntryResult, SorobanEvent,
+    SorobanRpcHandler, DEFAULT_CACHE_SIZE_MB, DEFAULT_MAX_PAGE_SIZE,
+};
 pub use webhook_delivery::{
     DeliveryRecord, WebhookDeliveryService, WebhookEndpoint, WebhookEvent, WebhookEventType,
 };
@@ -204,3 +258,13 @@ pub use topology::{
     ClusterTopology, EnforcementResult, TopologyMode, TopologyRuleSet, TopologySpreadConstraint,
     WhenUnsatisfiable,
 };
+pub mod cross_signal_anomaly;
+pub mod health_check_sidecar;
+pub mod index_sharding;
+pub mod observability_dashboard;
+pub mod orphan_audit;
+pub mod pvc_autoscaler;
+
+// Issue #1577 — Ledger-Close Webhook Dispatcher exports
+pub use ledger_close_dispatcher::{run_ledger_close_poll_loop, LedgerCloseDispatcher};
+pub use orphan_audit::{OrphanAuditReport, OrphanAuditor, OrphanedResource};

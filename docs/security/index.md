@@ -28,5 +28,6 @@
 - [credentials-and-secrets.md](credentials-and-secrets.md)
 - [pss.md](pss.md)
 - [dependency-updates.md](dependency-updates.md)
+- [SECURITY.md](../../SECURITY.md) — vulnerability reporting and disclosure policy
 - [../production-security-hardening.md](../production-security-hardening.md)
 - [../gatekeeper-policies.md](../gatekeeper-policies.md)

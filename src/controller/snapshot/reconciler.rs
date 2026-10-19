@@ -160,7 +160,7 @@ impl SnapshotReconciler {
     pub async fn new(config: SnapshotReconcilerConfig) -> Result<Self> {
         let sdk_config = aws_config::from_env()
             .region(aws_config::meta::region::RegionProviderChain::default_provider().or_else(
-                config.aws_region.as_str(),
+                aws_config::Region::new(config.aws_region.clone()),
             ))
             .load()
             .await;

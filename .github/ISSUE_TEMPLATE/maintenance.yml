@@ -1,7 +1,7 @@
 name: Maintenance / Chore
 description: Repo hygiene, CI, docs, dependency updates, or refactoring tasks
 title: "[Chore]: "
-labels: ["chore", "maintenance"]
+labels: ["maintenance"]
 body:
   - type: markdown
     attributes:

@@ -655,6 +655,10 @@ async fn blue_fully_down(client: &Client, node: &StellarNode) -> Result<bool> {
     Ok(sts_down && pods_down)
 }
 
+// Reconciler context is threaded explicitly (client, node, rollout options);
+// grouping these into a struct would obscure the call sites without reducing
+// the information each step needs.
+#[allow(clippy::too_many_arguments)]
 async fn patch_node_progress(
     client: &Client,
     node: &StellarNode,
@@ -876,6 +880,9 @@ fn set_sts_identity(
 }
 
 /// Build STS with optional publish-rollout annotation (forces pod restart).
+// Test helper mirroring `ensure_colored_statefulset`'s parameter set so the
+// two cannot drift apart; grouping would hide that correspondence.
+#[allow(clippy::too_many_arguments)]
 pub fn build_colored_statefulset_for_test(
     node: &StellarNode,
     color: &str,
@@ -888,7 +895,7 @@ pub fn build_colored_statefulset_for_test(
     publish_rollout: Option<&str>,
 ) -> StatefulSet {
     let labels = color_labels(node, color, role);
-    let mut sts = build_statefulset(node, false, None);
+    let mut sts = build_statefulset(node, false, None, node.spec.pod_anti_affinity.clone());
     set_sts_identity(
         &mut sts,
         sts_name,
@@ -911,6 +918,9 @@ pub fn sts_has_publish_rollout_annotation(sts: &StatefulSet) -> bool {
         .unwrap_or(false)
 }
 
+// Same reconciler-context rationale as `patch_node_progress` above: the
+// parameters are the per-color rollout inputs each reconcile step requires.
+#[allow(clippy::too_many_arguments)]
 async fn ensure_colored_statefulset(
     client: &Client,
     node: &StellarNode,
@@ -929,7 +939,12 @@ async fn ensure_colored_statefulset(
     let namespace = node.namespace().unwrap_or_else(|| "default".to_string());
     let api: Api<StatefulSet> = Api::namespaced(client.clone(), &namespace);
     let labels = color_labels(node, color, role);
-    let mut sts = build_statefulset(node, enable_mtls, seed_injection);
+    let mut sts = build_statefulset(
+            node,
+            enable_mtls,
+            seed_injection,
+            node.spec.pod_anti_affinity.clone(),
+        );
     set_sts_identity(
         &mut sts,
         sts_name,
@@ -1352,6 +1367,9 @@ pub async fn reconcile_validator_blue_green(
         .or_else(|| annotation(node, ANN_BLUE_VERSION));
 
     // Green already active: further upgrades are deferred (no flip-flop / no PVC delete).
+    // Nested (not collapsed) deliberately: the outer gate selects the
+    // green-active fast path, the inner guard skips it while rolling back.
+    #[allow(clippy::collapsible_if)]
     if matches!(
         phase,
         CoreBlueGreenPhase::GreenActive

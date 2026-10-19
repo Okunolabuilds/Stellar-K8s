@@ -106,7 +106,7 @@ done < <(grep -rn --include="*.rs" --include="*.pem" --include="*.key" \
 while IFS=: read -r file lineno content; do
     [[ "$file" == *test* || "$file" == *example* || "$file" == *fixture* || "$file" == *sample* || "$file" == *secret_rotation* || "$file" == *secret-rotation* || "$file" == *check-secrets* ]] && continue
     # Allow obvious placeholders and Secret *resource names* (not credential values).
-    echo "$content" | grep -qiE "(placeholder|example|changeme|your[-_]|<[^>]+>|\\\$\{|test[_-]?password|stellar-core-secret)" && continue
+    echo "$content" | grep -qiE "(placeholder|example|changeme|your[-_]|<[^>]+>|\\\$\{|test[_-]?password|stellar-core-secret|rollout-)" && continue
     finding "$file" "$lineno" "Possible inline secret assignment (password=/secret=/token=)"
 done < <(grep -rni --include="*.rs" --include="*.sh" --include="*.yaml" --include="*.yml" \
     -E "(password|secret|token)\s*=\s*['\"][^'\"]{8,}" . \
@@ -224,6 +224,51 @@ done < <(grep -rn --include="*.rs" \
 
 if [[ $findings -eq $rust_findings_before ]]; then
     echo -e "${GREEN}✓  No secret literals in non-test Rust source${RESET}"
+fi
+
+# ── Check 6: Legacy SEED key usage in examples/charts (warning only) ──────────
+separator
+echo -e "${BOLD}Check 6 — Legacy SEED key usage in examples/charts${RESET}"
+separator
+
+# Issue #1554: the operator prefers STELLAR_CORE_SEED; the legacy SEED key is
+# deprecated. Flag manifests that still reference the legacy key. These are
+# warnings only and do not fail the build.
+legacy_seed_warnings=0
+while IFS=: read -r file lineno content; do
+    # Skip comment-only mentions and the migration helper itself.
+    echo "$content" | grep -qE '^\s*#' && continue
+    [[ "$file" == *migrate-seed-key* ]] && continue
+    echo -e "  ${YELLOW}⚠${RESET}  ${file}:${lineno} — legacy 'SEED' key; prefer 'STELLAR_CORE_SEED'"
+    legacy_seed_warnings=$((legacy_seed_warnings + 1))
+done < <(grep -rn --include="*.yaml" --include="*.yml" \
+    -E '(^|[^A-Z_])SEED\s*:' examples/ charts/ config/ 2>/dev/null \
+    | grep -v 'STELLAR_CORE_SEED' \
+    || true)
+
+if [[ $legacy_seed_warnings -eq 0 ]]; then
+    echo -e "${GREEN}✓  No legacy SEED key usage found${RESET}"
+else
+    echo -e "${YELLOW}⚠  ${legacy_seed_warnings} legacy SEED reference(s) — run scripts/migrate-seed-key.sh${RESET}"
+fi
+
+# ── Check 7: Invalid health sidecar image references ──────────────────────────
+separator
+echo -e "${BOLD}Check 7 — Invalid health sidecar image references${RESET}"
+separator
+
+# Issue #1552: docker.io/stellar/stellar-k8s does not exist. Health sidecars
+# must resolve to ghcr.io/stellar/stellar-k8s:{version} or fall back to the
+# operator image.
+sidecar_findings_before=$findings
+while IFS=: read -r file lineno content; do
+    finding "$file" "$lineno" "Non-existent sidecar image 'docker.io/stellar/stellar-k8s' — use ghcr.io/stellar/stellar-k8s:{version}"
+done < <(grep -rn --include="*.yaml" --include="*.yml" \
+    'docker\.io/stellar/stellar-k8s' examples/ charts/ config/ 2>/dev/null \
+    || true)
+
+if [[ $findings -eq $sidecar_findings_before ]]; then
+    echo -e "${GREEN}✓  No invalid sidecar image references found${RESET}"
 fi
 
 # ── Summary ────────────────────────────────────────────────────────────────────

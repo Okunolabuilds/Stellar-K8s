@@ -36,7 +36,7 @@ mod cache;
 
 use std::panic::{self, AssertUnwindSafe};
 
-:{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 // Host functions provided by the runtime (same ABI as example-validator).
 // Only declared/linked for the actual Wasm target: the host only ever
@@ -97,12 +97,12 @@ enum CacheOp {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 enum OpOutcome {
-
+    Hit { value: String },
     Miss,
     Ok,
     /// The cache path failed (panicked, or was disabled) and the caller
     /// should treat this as a cache miss and go straight to the RPC node.
-
+    Bypass { reason: String },
 }
 
 #[derive(Debug, Serialize)]

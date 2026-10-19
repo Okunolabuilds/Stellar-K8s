@@ -53,7 +53,7 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose,
-    IsCa, KeyPair,
+    IsCa, Issuer, KeyPair,
 };
 use time::{Duration as TimeDuration, OffsetDateTime};
 
@@ -282,6 +282,7 @@ impl MtlsRotationEngine {
             .push(DnType::CommonName, "Stellar Internal CA");
         let ca_key = KeyPair::generate()?;
         let ca_cert = ca_params.self_signed(&ca_key)?;
+        let ca_issuer = Issuer::from_params(&ca_params, &ca_key);
 
         let mut server_params = CertificateParams::new(vec![
             "core.stellar.local".to_string(),
@@ -299,7 +300,7 @@ impl MtlsRotationEngine {
             .distinguished_name
             .push(DnType::CommonName, "Stellar Internal Server");
         let server_key = KeyPair::generate()?;
-        let server_cert = server_params.signed_by(&server_key, &ca_cert, &ca_key)?;
+        let server_cert = server_params.signed_by(&server_key, &ca_issuer)?;
 
         let mut client_params = CertificateParams::new(vec!["client.stellar.local".to_string()])?;
         client_params.is_ca = IsCa::NoCa;
@@ -310,7 +311,7 @@ impl MtlsRotationEngine {
             .distinguished_name
             .push(DnType::CommonName, "Stellar Internal Client");
         let client_key = KeyPair::generate()?;
-        let client_cert = client_params.signed_by(&client_key, &ca_cert, &ca_key)?;
+        let client_cert = client_params.signed_by(&client_key, &ca_issuer)?;
 
         Ok(MtlsCertificateBundle {
             ca_cert: ca_cert.pem(),
@@ -864,9 +865,6 @@ mod tests {
         let Ok(client) = Client::try_default().await else {
             eprintln!("skipping test_password_generation: no Kubernetes client available");
             return;
-        let client = match Client::try_default().await {
-            Ok(c) => c,
-            Err(_) => return, // Skip test if no kubeconfig
         };
         let scheduler = SecretRotationScheduler::new(config.clone(), client);
 
@@ -881,9 +879,6 @@ mod tests {
         let Ok(client) = Client::try_default().await else {
             eprintln!("skipping test_password_hashing: no Kubernetes client available");
             return;
-        let client = match Client::try_default().await {
-            Ok(c) => c,
-            Err(_) => return, // Skip test if no kubeconfig
         };
         let scheduler = SecretRotationScheduler::new(config, client);
 

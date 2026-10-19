@@ -28,6 +28,15 @@ spec:
 {{- if eq .Values.nodeType "Validator" }}
   validatorConfig:
     seedSecretRef: {{ .Values.seedSecret.name | quote }}
+    seedSecretSource:
+      localRef:
+        name: {{ .Values.seedSecret.name | quote }}
+        key: STELLAR_CORE_SEED
+{{- if .Values.sidecarImage }}
+    sidecarImage: {{ .Values.sidecarImage | quote }}
+{{- else }}
+    sidecarImage: {{ printf "ghcr.io/stellar/stellar-k8s:%s" .Values.version | quote }}
+{{- end }}
     enableHistoryArchive: true
     historyArchiveUrls:
       - https://history.stellar.org/prd/core-testnet/core_testnet_001

@@ -122,4 +122,41 @@ ignore = [
     "RUSTSEC-2026-0258",
     # wasmtime mixing type indices (RUSTSEC-2026-0222)
     "RUSTSEC-2026-0222",
+
+    # ── Added 2026-10-17: dependency-audit lockfile repair (#1714) ─────────────
+    # `cargo update -w` re-resolved the full graph after repairing a corrupted
+    # Cargo.lock. These advisories cover the newly selected versions; none has
+    # an in-range fix, so each is recorded here with scope justification.
+
+    # rustls 0.21.12 – Debug impls expose TLS secrets (RUSTSEC-2026-0346);
+    # unauthenticated ServerHello downgrade (RUSTSEC-2026-0349).
+    # Transitive via aws-smithy-http-client (AWS SDK default TLS stack); the
+    # 0.21 line has no patched release (fix is >=0.23.46, already selected for
+    # our direct rustls 0.23 line). Re-evaluate when the AWS SDK moves its
+    # default HTTP client off rustls 0.21.
+    "RUSTSEC-2026-0346",
+    "RUSTSEC-2026-0349",
+
+    # wasmtime / wasmtime-wasi 24.0.13 – fuel-accounting, handle-table,
+    # stdio-memory, poll_oneoff, readdir padding, datetime panic, and symlink
+    # sandbox-escape advisories. All require wasmtime >=36.x (breaking); same
+    # Winch-backend-only scope as the existing 24.x entries above, and this
+    # project runs only trusted operator-supplied guests on Cranelift.
+    "RUSTSEC-2026-0316",
+    "RUSTSEC-2026-0363",
+    "RUSTSEC-2026-0322",
+    "RUSTSEC-2026-0321",
+    "RUSTSEC-2026-0323",
+    "RUSTSEC-2026-0314",
+    "RUSTSEC-2026-0352",
+
+    # zip 2.6.1 – SUID/SGID preservation (RUSTSEC-2026-0367), symlink
+    # permission escape (RUSTSEC-2026-0369), and symlink-target escape
+    # (RUSTSEC-2026-0368) in `extract()`. Fix requires zip >=9.0.0 (breaking
+    # major). Production code only WRITES zips (incident reports via
+    # ZipWriter); the sole `ZipArchive` use only counts entries
+    # (`backup-verify`), never extracts. Re-evaluate when zip 9.x is adopted.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0369",
+    "RUSTSEC-2026-0368",
 ]

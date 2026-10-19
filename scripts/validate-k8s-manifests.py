@@ -33,6 +33,19 @@ NON_K8S_YAML_EXCLUDES = [
 # Fragments starting with underscore are partial YAML snippets.
 FRAGMENT_PREFIX = "_"
 
+# Health sidecar image resolution (issue #1552).
+# The sidecar must resolve to ghcr.io/stellar/stellar-k8s:{version} or fall
+# back to the operator image. The legacy derivation
+# container_image().replace('stellar-core', 'stellar-k8s') produced
+# docker.io/stellar/stellar-k8s, which does not exist.
+LEGACY_SIDECAR_IMAGE = "docker.io/stellar/stellar-k8s"
+VALID_SIDECAR_IMAGE_PREFIX = "ghcr.io/stellar/stellar-k8s"
+
+# Seed secret key standardization (issue #1554).
+PREFERRED_SEED_KEY = "STELLAR_CORE_SEED"
+LEGACY_SEED_KEY = "SEED"
+=======
+
 
 def find_project_root():
     """Walk up from this script to find the repository root."""
@@ -120,6 +133,89 @@ def validate_yaml_structure(filepath, root_dir):
             if not spec.get("versions"):
                 errors.append(f"{rel}: CRD missing spec.versions")
 
+    return errors
+
+
+def _iter_containers(doc):
+    """Yield container dicts from a Pod-spec-bearing manifest."""
+    spec = doc.get("spec")
+    if not isinstance(spec, dict):
+        return
+    # Pod template (Deployments, StatefulSets, etc.)
+    template = spec.get("template")
+    if isinstance(template, dict):
+        pod_spec = template.get("spec")
+        if isinstance(pod_spec, dict):
+            for key in ("containers", "initContainers"):
+                for container in pod_spec.get(key) or []:
+                    if isinstance(container, dict):
+                        yield container
+    # Bare Pod
+    for key in ("containers", "initContainers"):
+        for container in spec.get(key) or []:
+            if isinstance(container, dict):
+                yield container
+
+
+def _iter_secret_keys(doc):
+    """Yield secret data/stringData keys from a Secret manifest."""
+    for field in ("data", "stringData"):
+        data = doc.get(field)
+        if isinstance(data, dict):
+            for key in data:
+                yield key
+
+
+def validate_sidecar_image(doc, rel, idx):
+    """Ensure no manifest references the non-existent legacy sidecar image."""
+    errors = []
+    for container in _iter_containers(doc):
+        image = container.get("image")
+        if not isinstance(image, str):
+            continue
+        if image.startswith(LEGACY_SIDECAR_IMAGE):
+            errors.append(
+                f"{rel}: document {idx} container '{container.get('name', '?')}' "
+                f"uses non-existent image '{image}'; use "
+                f"'{VALID_SIDECAR_IMAGE_PREFIX}:{{version}}' or the operator image"
+            )
+    return errors
+
+
+def validate_seed_secret_keys(doc, rel, idx):
+    """Warn when a Secret only exposes the legacy SEED key (issue #1554)."""
+    keys = list(_iter_secret_keys(doc))
+    if not keys:
+        return []
+    if LEGACY_SEED_KEY in keys and PREFERRED_SEED_KEY not in keys:
+        # Non-fatal: existing deployments must keep working during migration.
+        print(
+            f"  [WARN] {rel}: document {idx} uses legacy secret key "
+            f"'{LEGACY_SEED_KEY}'; migrate to '{PREFERRED_SEED_KEY}' "
+            f"(see scripts/migrate-seed-key.sh)"
+        )
+    return []
+
+
+def validate_example_conventions(filepath, root_dir):
+    """Check example manifests for image and seed-key conventions."""
+    rel = os.path.relpath(filepath, root_dir).replace("\\", "/")
+    if not rel.startswith("examples/"):
+        return []
+
+    errors = []
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            docs = list(yaml.safe_load_all(f))
+    except yaml.YAMLError:
+        # YAML syntax errors are reported by validate_yaml_structure.
+        return []
+
+    for idx, doc in enumerate(docs):
+        if not isinstance(doc, dict):
+            continue
+        errors.extend(validate_sidecar_image(doc, rel, idx))
+        errors.extend(validate_seed_secret_keys(doc, rel, idx))
     return errors
 
 
@@ -255,6 +351,24 @@ def main():
     for filepath in manifest_files:
         rel_path = os.path.relpath(filepath, root_dir)
         errs = validate_yaml_structure(filepath, root_dir)
+        if errs:
+            all_errors.extend(errs)
+            print(f"  [FAIL] {rel_path}")
+            for err in errs:
+                print(f"      {err}")
+        else:
+            print(f"  [OK] {rel_path}")
+
+    # 3b. Example convention checks (issues #1552, #1554)
+    print()
+    print("-" * 60)
+    print("Phase 1b: Example image & seed-key conventions")
+    print("-" * 60)
+    for filepath in manifest_files:
+        rel_path = os.path.relpath(filepath, root_dir)
+        if not rel_path.replace("\\", "/").startswith("examples/"):
+            continue
+        errs = validate_example_conventions(filepath, root_dir)
         if errs:
             all_errors.extend(errs)
             print(f"  [FAIL] {rel_path}")

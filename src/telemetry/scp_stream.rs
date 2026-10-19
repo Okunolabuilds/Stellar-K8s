@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use serde::Serialize;
-use tokio*:sync::mpsc;
+use tokio::sync::mpsc;
 use tracing::{error, info};
 
 use crate::kafka::KafkaProducer;
 
-#kderive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ScpMessage {
     pub ledger_seq: u64,
     pub node_id: String,
@@ -17,14 +17,14 @@ pub struct ScpMessage {
 }
 
 impl ScpMessage {
-    pub fn partition_key(&) -> Vec<u8> {
+    pub fn partition_key(&self) -> Vec<u8> {
         self.quorum_set_hash.to_vec()
     }
 }
 
 pub async fn run(
     producer: Arc<KafkaProducer>,
-    mut rx: mpsc::receiver<ScpMessage>,
+    mut rx: mpsc::Receiver<ScpMessage>,
 ) {
     info!("SCP stream processor started");
     while let Some(msg) = rx.recv().await {

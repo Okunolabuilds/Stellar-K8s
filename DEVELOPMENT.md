@@ -98,7 +98,13 @@ cd Stellar-K8s
 
 ### 2. Run Development Setup
 
-Install the manually-installed tools listed in [Prerequisites](#prerequisites) above, then run:
+Install the manually-installed tools listed in [Prerequisites](#prerequisites) above. On Linux or macOS you can automate this step with:
+
+```bash
+./scripts/setup-dev-env.sh
+```
+
+This detects your OS and runs the matching `scripts/setup-linux.sh` or `scripts/setup-mac.sh`. Then run:
 
 ```bash
 make dev-setup
@@ -455,9 +461,10 @@ make clean         # Remove build artifacts
 ```bash
 make preflight     # Validate all required tools are installed (run this first)
 make health        # Recommended: format + lint + tests + docs (+ shellcheck)
+make health-fast   # Fast gate: format + lint + compile (no tests) — same as `make validate`
 make quick         # Fast pre-commit check (format + compile)
-make health-fast  # Fast compile path: format + lint + compile check (no tests)
-make ci-local      # Full CI pipeline locally (fmt-check + lint + audit + test + build + link-check)
+make validate      # Alias for health-fast: format + lint + compile check (no tests)
+make ci-local      # Full CI pipeline locally (fmt-check + lint + docs-lint + audit + test + build + link-check)
 ```
 
 ### Security
@@ -491,6 +498,7 @@ make watch         # Watch mode: rebuild on changes
 ```bash
 make docker-build      # Build Docker image (local arch, fast mode using host binaries)
 make docker-build-ci   # Build Docker image (CI mode, builds binaries in container)
+make docker-cache-purge # Purge unused daemon build cache (asks for confirmation)
 make docker-multiarch  # Build multi-arch image (amd64 + arm64)
 ```
 
@@ -779,6 +787,7 @@ make ci-local                     # Full CI validation
 ```bash
 # Development (canonical — prefer make targets to match CI feature flags)
 make build                        # Build release (wraps `cargo build --release --locked`)
+make cache-warm                   # Warm the Cargo cache: fetch locked deps + pre-compile lib/bins
 make test                         # Run tests (wraps `cargo test` with project features)
 make fmt                          # Format code (wraps `cargo fmt --all`)
 make lint                         # Lint code (wraps `cargo clippy` with project features)

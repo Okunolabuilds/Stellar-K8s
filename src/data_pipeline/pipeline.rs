@@ -19,8 +19,12 @@ use crate::data_pipeline::{
     sinks::{build_sinks, Sink},
 };
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::watch;
-use tracing::info;
+use tracing::{error, info, warn};
+
+use crate::data_pipeline::etl::EtlTransformer;
+use crate::data_pipeline::lineage::LineageStatus;
 
 /// Handle returned by [`DataPipeline::start`] for monitoring and shutdown.
 pub struct PipelineHandle {
@@ -75,11 +79,11 @@ impl DataPipeline {
 }
 
 async fn run_pipeline(
-    _config: Arc<PipelineConfig>,
-    _sinks: Arc<Vec<Box<dyn Sink>>>,
-    _metrics: PipelineMetrics,
-    _lineage: LineageTracker,
-    mut shutdown_rx: watch::Receiver<bool>,
+    config: Arc<PipelineConfig>,
+    sinks: Arc<Vec<Box<dyn Sink>>>,
+    metrics: PipelineMetrics,
+    lineage: LineageTracker,
+    shutdown_rx: watch::Receiver<bool>,
 ) {
     #[cfg(feature = "kafka")]
     {

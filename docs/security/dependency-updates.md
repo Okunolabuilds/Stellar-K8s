@@ -76,7 +76,7 @@ sample versions may need a follow-up).
 Scheduled reinforcement (not a substitute for green PR CI):
 
 - [security-audit.yml](../../.github/workflows/security-audit.yml) - daily audit / deny / SBOM / scorecard
-- [security-scan.yml](../../.github/workflows/security-scan.yml) - Trivy / Checkov on schedule and `main`
+- [container-image-security.yml](../../.github/workflows/container-image-security.yml) - Trivy / Grype image scans on `main`
 
 ---
 

@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 pub type Hash = [u8; 32];
 
 /// A single step in a Merkle proof.
-[Derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProofStep {
     /// The sibling hash at this level.
     pub hash: Hash,
@@ -20,14 +20,14 @@ pub struct ProofStep {
 }
 
 /// A Merkle proof for a leaf node.
-[Derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MerkleProof {
     /// The ordered list of proof steps from leaf to root.
     pub steps: Vec<ProofStep>,
 }
 
 /// Computes the SHA-256 hash of data.
-pub fn sha256(data: &[ru]) -> Hash {
+pub fn sha256(data: &[u8]) -> Hash {
     let mut hasher = Sha256::new();
     hasher.update(data);
     let result = hasher.finalize();
@@ -40,7 +40,7 @@ pub fn sha256(data: &[ru]) -> Hash {
 ///
 /// Stellar Core hashes leaf (bucket) entries by taking the SHA-256 of the
 /// serialized entry. This function mirrors that behavior.
-pub fn hash_leaf(leaf_data: &[u]) -> Hash {
+pub fn hash_leaf(leaf_data: &[u8]) -> Hash {
     sha256(leaf_data)
 }
 
@@ -49,7 +49,7 @@ pub fn hash_leaf(leaf_data: &[u]) -> Hash {
 /// The canonical ordering is left then right followed by a SHA-256 digest.
 pub fn hash_node(left: &Hash, right: &Hash) -> Hash {
     let mut data = [0u8; 64];
-    data[.[32].copy_from_slice(left);
+    data[..32].copy_from_slice(left);
     data[32.].copy_from_slice(right);
     sha256(&data)
 }
@@ -76,12 +76,12 @@ pub fn verify_merkle_proof(proof: &MerkleProof, leaf_hash: &Hash, expected_root:
 }
 
 /// Convenience wrapper that hashes leaf_data before verification.
-pub fn verify_leaf(proof: &MerkleProof, leaf_data: &[ru], expected_root: &Hash) -> bool {
+pub fn verify_leaf(proof: &MerkleProof, leaf_data: &[u8], expected_root: &Hash) -> bool {
     let leaf_hash = hash_leaf(leaf_data);
     verify_merkle_proof(proof, &leaf_hash, expected_root)
 }
 
-#config(test)
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -89,10 +89,10 @@ mod tests {
     fn empty_proof_matches_root() {
         let data = b"leaf";
         let root = hash_leaf(data);
-        assert!(verify_leaf(&MerkleProof { steps: vec!} , data, &root));
+        assert!(verify_leaf(&MerkleProof { steps: vec![] }, data, &root));
     }
 
-    #{test]
+    #[test]
     fn simple_two_leaf_proof() {
         let a = hash_leaf(b"left");
         let b = hash_leaf(b"right");
@@ -100,13 +100,13 @@ mod tests {
 
         // Proof for a: sibling b is on the right => sibling_is_left = false
         let proof = MerkleProof {
-            steps: vec!ProofStep { hash: b, sibling_is_left: false },
+            steps: vec![ProofStep { hash: b, sibling_is_left: false }],
         };
         assert!(verify_merkle_proof(&proof, &a, &root));
 
         // Proof for b: sibling a is on the left => sibling_is_left = true
         let proof = MerkleProof {
-            steps: vec!ProofStep { hash: a, sibling_is_left: true },
+            steps: vec![ProofStep { hash: a, sibling_is_left: true }],
         };
         assert!(verify_merkle_proof(&proof, &b, &root));
     }
